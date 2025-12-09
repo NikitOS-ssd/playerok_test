@@ -44,7 +44,7 @@ npm run start:dev   # дев-режим с hot-reload
 npm run start       # без hot-reload
 ```
 
-Swagger UI: http://localhost:3000/docs  
+Swagger UI: http://localhost:3000/swagger  
 Основной порт API: `3000`
 
 ## API (основные эндпоинты)
@@ -86,8 +86,8 @@ Swagger UI: http://localhost:3000/docs
 - `PATCH /orders/:id/cancel` — отменить заказ (возвращает остатки товаров)
 
 ### Документация
-- Swagger UI: `GET /docs`
-- OpenAPI JSON: `GET /docs-json`
+- Swagger UI: `GET /swagger`
+- OpenAPI JSON: `GET /swagger-json`
 
 ## Упрощения и допущения
 - Аутентификация/авторизация отсутствуют.
