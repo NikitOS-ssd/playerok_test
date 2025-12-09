@@ -1,10 +1,14 @@
-import { Controller, Get } from '@nestjs/common';
+import { Body, Controller, Post } from '@nestjs/common';
+import { SellersService } from './sellers.service';
+import { CreateSellerDto } from './dto/create-seller.dto';
 
 @Controller('sellers')
 export class SellersController {
-  @Get()
-  list(): { message: string } {
-    return { message: 'List of sellers will be here' };
+  constructor(private readonly sellersService: SellersService) {}
+
+  @Post()
+  create(@Body() createSellerDto: CreateSellerDto) {
+    return this.sellersService.create(createSellerDto);
   }
 }
 
