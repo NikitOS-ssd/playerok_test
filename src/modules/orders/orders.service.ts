@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -6,10 +6,13 @@ import { CancelOrderDto } from './dto/cancel-order.dto';
 
 @Injectable()
 export class OrdersService {
+  private readonly logger = new Logger(OrdersService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   async createOrder(dto: CreateOrderDto) {
     const productIds = dto.items.map((i) => i.productId);
+    this.logger.log(`Create order start for buyerEmail=${dto.buyerEmail}, products=${productIds.join(',')}`);
 
     return this.prisma.$transaction(async (tx) => {
       const products = await tx.product.findMany({
@@ -49,6 +52,11 @@ export class OrdersService {
       // Update stocks
       for (const item of orderItems) {
         const product = productMap.get(item.productId)!;
+        this.logger.log(
+          `Reserve stock for product=${product.id}: stock ${product.stock} -> ${
+            product.stock - item.quantity
+          }`,
+        );
         await tx.product.update({
           where: { id: product.id },
           data: { stock: product.stock - item.quantity },
@@ -63,7 +71,7 @@ export class OrdersService {
       const order = await tx.order.create({
         data: {
           buyerEmail: dto.buyerEmail,
-          status: 'PENDING',
+          status: Prisma.OrderStatus.PENDING,
           totalAmount,
           items: {
             create: orderItems.map((item) => ({
@@ -77,28 +85,76 @@ export class OrdersService {
         include: { items: true },
       });
 
+      this.logger.log(`Order created id=${order.id}, buyerEmail=${order.buyerEmail}, totalAmount=${totalAmount}`);
       return order;
     });
   }
 
   getOrderById(id: string) {
-    return this.prisma.order.findUnique({ where: { id }, include: { items: true } });
+    return this.prisma.order.findUnique({
+      where: { id },
+      include: { items: { include: { product: true } } },
+    });
   }
 
-  getOrders(params?: { skip?: number; take?: number }) {
+  getOrders(params?: {
+    skip?: number;
+    take?: number;
+    buyerEmail?: string;
+    status?: Prisma.OrderStatus;
+  }) {
     return this.prisma.order.findMany({
       skip: params?.skip,
       take: params?.take,
+      where: {
+        buyerEmail: params?.buyerEmail,
+        status: params?.status,
+      },
       orderBy: { createdAt: 'desc' },
-      include: { items: true },
+      include: { items: { include: { product: true } } },
     });
   }
 
   async cancelOrder(id: string, _dto: CancelOrderDto) {
-    return this.prisma.order.update({
-      where: { id },
-      data: { status: 'CANCELLED' },
-      include: { items: true },
+    this.logger.log(`Cancel order request id=${id}`);
+
+    return this.prisma.$transaction(async (tx) => {
+      const order = await tx.order.findUnique({
+        where: { id },
+        include: { items: true },
+      });
+
+      if (!order) {
+        throw new NotFoundException('Order not found');
+      }
+
+      if (order.status === Prisma.OrderStatus.CANCELLED) {
+        return order; // идемпотентность
+      }
+
+      if (![Prisma.OrderStatus.PENDING, Prisma.OrderStatus.CREATED].includes(order.status)) {
+        throw new BadRequestException('Order cannot be cancelled in its current status');
+      }
+
+      // вернуть остатки по товарам
+      for (const item of order.items) {
+        this.logger.log(
+          `Restock product=${item.productId} by quantity=${item.quantity} for order=${id}`,
+        );
+        await tx.product.update({
+          where: { id: item.productId },
+          data: { stock: { increment: item.quantity } },
+        });
+      }
+
+      const updatedOrder = await tx.order.update({
+        where: { id },
+        data: { status: Prisma.OrderStatus.CANCELLED },
+        include: { items: true },
+      });
+
+      this.logger.log(`Order cancelled id=${updatedOrder.id}, buyerEmail=${updatedOrder.buyerEmail}`);
+      return updatedOrder;
     });
   }
 }

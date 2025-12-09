@@ -1,5 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { PrismaClientExceptionFilter } from './common/filters/prisma-exception.filter';
 
@@ -16,6 +17,14 @@ async function bootstrap(): Promise<void> {
   );
 
   app.useGlobalFilters(new PrismaClientExceptionFilter());
+
+  const config = new DocumentBuilder()
+    .setTitle('Marketplace API')
+    .setDescription('REST API for a simplified marketplace (sellers, products, orders)')
+    .setVersion('0.1.0')
+    .build();
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('docs', app, document);
 
   const port = process.env.PORT || 3000;
   await app.listen(port);
