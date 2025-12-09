@@ -1,9 +1,10 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Headers, HttpCode, HttpStatus, Param, Patch, Post, Query, Req } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { CancelOrderDto } from './dto/cancel-order.dto';
 import { GetOrdersQuery } from './dto/get-orders.query';
+import { CreatePaymentLinkDto } from './dto/create-payment-link.dto';
 
 @ApiTags('Orders')
 @Controller('orders')
@@ -47,6 +48,26 @@ export class OrdersController {
   @ApiResponse({ status: 200, description: 'Order cancelled' })
   cancel(@Param('id') id: string, @Body() dto: CancelOrderDto) {
     return this.ordersService.cancelOrder(id, dto);
+  }
+
+  @Post(':id/pay')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Create payment link for order' })
+  @ApiResponse({ status: 200, description: 'Payment link created' })
+  pay(@Param('id') id: string, @Body() dto: CreatePaymentLinkDto) {
+    return this.ordersService.createPaymentLink(id, dto);
+  }
+
+  @Post('webhooks/stripe')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Stripe webhook' })
+  @ApiResponse({ status: 200, description: 'Webhook processed' })
+  webhook(
+    @Req() req: { rawBody?: Buffer; body?: unknown },
+    @Headers('stripe-signature') signature?: string,
+  ) {
+    const raw = (req.rawBody ?? req.body) as Buffer;
+    return this.ordersService.handleStripeWebhook(raw, signature);
   }
 }
 
