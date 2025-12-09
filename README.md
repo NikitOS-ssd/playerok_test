@@ -47,44 +47,6 @@ npm run start       # без hot-reload
 Swagger UI: http://localhost:3000/swagger  
 Основной порт API: `3000`
 
-## API (основные эндпоинты)
-
-### Sellers
-- `POST /sellers` — создать продавца  
-  Пример payload:
-  ```json
-  { "name": "Acme Corp" }
-  ```
-
-### Products
-- `POST /products` — создать товар  
-  ```json
-  {
-    "sellerId": "seller-uuid",
-    "title": "Wireless Mouse",
-    "price": 1999,
-    "stock": 50,
-    "isActive": true
-  }
-  ```
-- `PATCH /products/:id` — обновить товар (частичный payload)
-- `GET /products?sellerId=&isActive=` — список товаров, фильтры по продавцу и активности
-
-### Orders
-- `POST /orders` — создать заказ  
-  ```json
-  {
-    "buyerEmail": "buyer@example.com",
-    "items": [
-      { "productId": "product-uuid-1", "quantity": 2 },
-      { "productId": "product-uuid-2", "quantity": 1 }
-    ]
-  }
-  ```
-- `GET /orders/:id` — получить заказ (с позициями и данными по товарам)
-- `GET /orders?page=&limit=&buyerEmail=&status=` — список заказов с пагинацией и фильтрами
-- `PATCH /orders/:id/cancel` — отменить заказ (возвращает остатки товаров)
-
 ### Документация
 - Swagger UI: `GET /swagger`
 - OpenAPI JSON: `GET /swagger-json`
