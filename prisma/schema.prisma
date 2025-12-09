@@ -1,0 +1,73 @@
+// Prisma schema for the marketplace service
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  CANCELLED
+}
+
+model Seller {
+  id        String    @id @default(uuid())
+  name      String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  products  Product[]
+
+  @@index([createdAt])
+}
+
+model Product {
+  id        String    @id @default(uuid())
+  sellerId  String
+  title     String
+  price     Decimal   @db.Decimal(12, 2)
+  stock     Int
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  seller    Seller    @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  orderItems OrderItem[]
+
+  @@index([sellerId])
+  @@index([isActive, createdAt])
+}
+
+model Order {
+  id          String      @id @default(uuid())
+  buyerEmail  String
+  status      OrderStatus @default(PENDING)
+  totalAmount Decimal     @db.Decimal(12, 2)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  items       OrderItem[]
+
+  @@index([status, createdAt])
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id         String   @id @default(uuid())
+  orderId    String
+  productId  String
+  price      Decimal  @db.Decimal(12, 2)
+  quantity   Int
+  subtotal   Decimal  @db.Decimal(14, 2)
+
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+  @@index([productId])
+}
+
