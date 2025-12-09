@@ -1,7 +1,8 @@
 import { BadRequestException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
 import { OrdersService } from '../src/modules/orders/orders.service';
 import { CreateOrderDto } from '../src/modules/orders/dto/create-order.dto';
+import { ORDER_STATUS } from '../src/modules/orders/constants/order-status';
+import { Prisma } from '@prisma/client';
 
 type MockPrisma = {
   product: {
@@ -48,7 +49,7 @@ describe('OrdersService', () => {
     prisma.order.create.mockResolvedValue({
       id: 'o1',
       buyerEmail: 'buyer@example.com',
-      status: Prisma.OrderStatus.PENDING,
+      status: ORDER_STATUS[0],
       totalAmount: new Prisma.Decimal(200),
       items: [],
     });
@@ -100,19 +101,19 @@ describe('OrdersService', () => {
 
     prisma.order.findUnique = jest.fn().mockResolvedValue({
       id: 'o1',
-      status: Prisma.OrderStatus.PENDING,
+      status: ORDER_STATUS[0],
       items: [{ productId: 'p1', quantity: 2 }],
     });
     prisma.order.update = jest.fn().mockResolvedValue({
       id: 'o1',
-      status: Prisma.OrderStatus.CANCELLED,
+      status: 'CANCELLED',
       items: [{ productId: 'p1', quantity: 2 }],
     });
 
     const service = new OrdersService(prisma as any);
     const result = await service.cancelOrder('o1', {});
 
-    expect(result.status).toBe(Prisma.OrderStatus.CANCELLED);
+    expect(result.status).toBe('CANCELLED');
     expect(prisma.product.update).toHaveBeenCalledWith({
       where: { id: 'p1' },
       data: { stock: { increment: 2 } },

@@ -1,7 +1,8 @@
 import { Type } from 'class-transformer';
 import { IsEmail, IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Prisma } from '@prisma/client';
+import { IsIn } from 'class-validator';
+import { ORDER_STATUS, OrderStatus } from '../constants/order-status';
 
 export class GetOrdersQuery {
   @ApiPropertyOptional({ example: 1 })
@@ -23,9 +24,9 @@ export class GetOrdersQuery {
   @IsOptional()
   buyerEmail?: string;
 
-  @ApiPropertyOptional({ enum: Prisma.OrderStatus, example: Prisma.OrderStatus.PENDING })
-  @IsEnum(Prisma.OrderStatus)
+  @ApiPropertyOptional({ enum: ORDER_STATUS, example: ORDER_STATUS[0] })
+  @IsIn(ORDER_STATUS)
   @IsOptional()
-  status?: Prisma.OrderStatus;
+  status?: OrderStatus;
 }
 

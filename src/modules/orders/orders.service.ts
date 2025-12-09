@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { CancelOrderDto } from './dto/cancel-order.dto';
+import { ORDER_STATUS, OrderStatus } from './constants/order-status';
 
 @Injectable()
 export class OrdersService {
@@ -71,7 +72,7 @@ export class OrdersService {
       const order = await tx.order.create({
         data: {
           buyerEmail: dto.buyerEmail,
-          status: Prisma.OrderStatus.PENDING,
+          status: ORDER_STATUS[0], // PENDING
           totalAmount,
           items: {
             create: orderItems.map((item) => ({
@@ -101,7 +102,7 @@ export class OrdersService {
     skip?: number;
     take?: number;
     buyerEmail?: string;
-    status?: Prisma.OrderStatus;
+    status?: OrderStatus;
   }) {
     return this.prisma.order.findMany({
       skip: params?.skip,
@@ -128,11 +129,11 @@ export class OrdersService {
         throw new NotFoundException('Order not found');
       }
 
-      if (order.status === Prisma.OrderStatus.CANCELLED) {
+      if (order.status === 'CANCELLED') {
         return order; // идемпотентность
       }
 
-      if (![Prisma.OrderStatus.PENDING, Prisma.OrderStatus.CREATED].includes(order.status)) {
+      if (!['PENDING', 'CREATED'].includes(order.status)) {
         throw new BadRequestException('Order cannot be cancelled in its current status');
       }
 
@@ -149,7 +150,7 @@ export class OrdersService {
 
       const updatedOrder = await tx.order.update({
         where: { id },
-        data: { status: Prisma.OrderStatus.CANCELLED },
+        data: { status: 'CANCELLED' },
         include: { items: true },
       });
 
