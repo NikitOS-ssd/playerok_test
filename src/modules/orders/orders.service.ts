@@ -133,7 +133,8 @@ export class OrdersService {
         return order; // идемпотентность
       }
 
-      if (!['PENDING', 'CREATED'].includes(order.status)) {
+      // Cancel only pending orders
+      if (!['PENDING'].includes(order.status)) {
         throw new BadRequestException('Order cannot be cancelled in its current status');
       }
 
