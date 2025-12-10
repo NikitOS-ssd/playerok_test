@@ -1,0 +1,9 @@
+global:
+  scrape_interval: 3s
+
+scrape_configs:
+  - job_name: "node-backend"
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - marketplace-backend:3000
