@@ -171,115 +171,115 @@ export class OrdersService {
     });
   }
 
-  async createPaymentLink(id: string, dto: CreatePaymentLinkDto) {
-    this.logger.log(`Create payment link request id=${id}, userId=${dto.userId}`);
+  // async createPaymentLink(id: string, dto: CreatePaymentLinkDto) {
+  //   this.logger.log(`Create payment link request id=${id}, userId=${dto.userId}`);
 
-    if (!this.stripe) {
-      throw new BadRequestException('Stripe is not configured');
-    }
+  //   if (!this.stripe) {
+  //     throw new BadRequestException('Stripe is not configured');
+  //   }
 
-    const successUrl = process.env.STRIPE_SUCCESS_URL;
-    const cancelUrl = process.env.STRIPE_CANCEL_URL;
-    if (!successUrl || !cancelUrl) {
-      throw new BadRequestException('Stripe redirect URLs are not configured');
-    }
+  //   const successUrl = process.env.STRIPE_SUCCESS_URL;
+  //   const cancelUrl = process.env.STRIPE_CANCEL_URL;
+  //   if (!successUrl || !cancelUrl) {
+  //     throw new BadRequestException('Stripe redirect URLs are not configured');
+  //   }
 
-    const order = await this.prisma.order.findUnique({
-      where: { id },
-      include: { items: true },
-    });
+  //   const order = await this.prisma.order.findUnique({
+  //     where: { id },
+  //     include: { items: true },
+  //   });
 
-    if (!order) {
-      throw new NotFoundException('Order not found');
-    }
+  //   if (!order) {
+  //     throw new NotFoundException('Order not found');
+  //   }
 
-    if (order.status !== 'PENDING') {
-      throw new BadRequestException('Only pending orders can be paid');
-    }
+  //   if (order.status !== 'PENDING') {
+  //     throw new BadRequestException('Only pending orders can be paid');
+  //   }
 
-    const amountCents = order.totalAmount.mul(100).toNumber();
-    if (amountCents <= 0) {
-      throw new BadRequestException('Order amount must be positive');
-    }
+  //   const amountCents = order.totalAmount.mul(100).toNumber();
+  //   if (amountCents <= 0) {
+  //     throw new BadRequestException('Order amount must be positive');
+  //   }
 
-    const session = await this.stripe.checkout.sessions.create({
-      mode: 'payment',
-      success_url: successUrl,
-      cancel_url: cancelUrl,
-      customer_email: order.buyerEmail,
-      line_items: [
-        {
-          quantity: 1,
-          price_data: {
-            currency: 'usd',
-            product_data: { name: `Order ${order.id}` },
-            unit_amount: Math.round(amountCents),
-          },
-        },
-      ],
-      metadata: {
-        orderId: order.id,
-        userId: dto.userId,
-        buyerEmail: order.buyerEmail,
-        totalAmount: order.totalAmount.toString(),
-      },
-    });
+  //   const session = await this.stripe.checkout.sessions.create({
+  //     mode: 'payment',
+  //     success_url: successUrl,
+  //     cancel_url: cancelUrl,
+  //     customer_email: order.buyerEmail,
+  //     line_items: [
+  //       {
+  //         quantity: 1,
+  //         price_data: {
+  //           currency: 'usd',
+  //           product_data: { name: `Order ${order.id}` },
+  //           unit_amount: Math.round(amountCents),
+  //         },
+  //       },
+  //     ],
+  //     metadata: {
+  //       orderId: order.id,
+  //       userId: dto.userId,
+  //       buyerEmail: order.buyerEmail,
+  //       totalAmount: order.totalAmount.toString(),
+  //     },
+  //   });
 
-    this.logger.log(`Payment link created for order=${id}, session=${session.id}`);
+  //   this.logger.log(`Payment link created for order=${id}, session=${session.id}`);
 
-    return { url: session.url };
-  }
+  //   return { url: session.url };
+  // }
 
-  async handleStripeWebhook(rawBody: Buffer, signature?: string) {
-    if (!this.stripe) {
-      throw new BadRequestException('Stripe is not configured');
-    }
+  // async handleStripeWebhook(rawBody: Buffer, signature?: string) {
+  //   if (!this.stripe) {
+  //     throw new BadRequestException('Stripe is not configured');
+  //   }
 
-    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-    if (!webhookSecret) {
-      throw new BadRequestException('Stripe webhook secret is not configured');
-    }
+  //   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  //   if (!webhookSecret) {
+  //     throw new BadRequestException('Stripe webhook secret is not configured');
+  //   }
 
-    if (!signature) {
-      throw new BadRequestException('Missing Stripe signature');
-    }
+  //   if (!signature) {
+  //     throw new BadRequestException('Missing Stripe signature');
+  //   }
 
-    let event: Stripe.Event;
-    try {
-      // rawBody can come as Buffer (preferred). If not, try to coerce.
-      const bodyBuffer = Buffer.isBuffer(rawBody) ? rawBody : Buffer.from(rawBody as any);
-      event = this.stripe.webhooks.constructEvent(bodyBuffer, signature, webhookSecret);
-    } catch (err) {
-      this.logger.warn(`Invalid Stripe signature: ${(err as Error).message}`);
-      throw new BadRequestException('Invalid Stripe signature');
-    }
+  //   let event: Stripe.Event;
+  //   try {
+  //     // rawBody can come as Buffer (preferred). If not, try to coerce.
+  //     const bodyBuffer = Buffer.isBuffer(rawBody) ? rawBody : Buffer.from(rawBody as any);
+  //     event = this.stripe.webhooks.constructEvent(bodyBuffer, signature, webhookSecret);
+  //   } catch (err) {
+  //     this.logger.warn(`Invalid Stripe signature: ${(err as Error).message}`);
+  //     throw new BadRequestException('Invalid Stripe signature');
+  //   }
 
-    switch (event.type) {
-      case 'checkout.session.completed': {
-        const session = event.data.object as Stripe.Checkout.Session;
-        const metadata = session.metadata || {};
-        const orderId = metadata.orderId;
-        const paymentIntentId = typeof session.payment_intent === 'string' ? session.payment_intent : undefined;
-        if (!orderId) {
-          this.logger.warn('checkout.session.completed received without orderId metadata');
-          break;
-        }
+  //   switch (event.type) {
+  //     case 'checkout.session.completed': {
+  //       const session = event.data.object as Stripe.Checkout.Session;
+  //       const metadata = session.metadata || {};
+  //       const orderId = metadata.orderId;
+  //       const paymentIntentId = typeof session.payment_intent === 'string' ? session.payment_intent : undefined;
+  //       if (!orderId) {
+  //         this.logger.warn('checkout.session.completed received without orderId metadata');
+  //         break;
+  //       }
 
-        if (session.payment_status === 'paid') {
-          await this.markOrderPaid(orderId, session.id, paymentIntentId);
-        } else {
-          this.logger.log(`Checkout session completed with non-paid status: ${session.payment_status}`);
-        }
-        break;
-      }
-      default:
-        this.logger.log(`Unhandled Stripe event type: ${event.type}`);
-    }
+  //       if (session.payment_status === 'paid') {
+  //         await this.markOrderPaid(orderId, session.id, paymentIntentId);
+  //       } else {
+  //         this.logger.log(`Checkout session completed with non-paid status: ${session.payment_status}`);
+  //       }
+  //       break;
+  //     }
+  //     default:
+  //       this.logger.log(`Unhandled Stripe event type: ${event.type}`);
+  //   }
 
-    return { received: true };
-  }
+  //   return { received: true };
+  // }
 
-  private async markOrderPaid(orderId: string, sessionId: string, paymentIntentId?: string) {
+  async markOrderPaid(orderId: string, sessionId: string, paymentIntentId?: string) {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
       select: { id: true, status: true },
