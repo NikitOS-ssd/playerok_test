@@ -1,4 +1,70 @@
 {
+  "__inputs": [
+    {
+      "name": "DS_PROMETHEUS",
+      "label": "Prometheus",
+      "description": "",
+      "type": "datasource",
+      "pluginId": "prometheus",
+      "pluginName": "Prometheus"
+    },
+    {
+      "name": "DS_LOKI",
+      "label": "Loki",
+      "description": "",
+      "type": "datasource",
+      "pluginId": "loki",
+      "pluginName": "Loki"
+    }
+  ],
+  "__requires": [
+    {
+      "type": "grafana",
+      "id": "grafana",
+      "name": "Grafana",
+      "version": "11.0.0"
+    },
+    {
+      "type": "panel",
+      "id": "timeseries",
+      "name": "Time series",
+      "version": ""
+    },
+    {
+      "type": "panel",
+      "id": "logs",
+      "name": "Logs",
+      "version": ""
+    },
+    {
+      "type": "datasource",
+      "id": "prometheus",
+      "name": "Prometheus",
+      "version": "2.0.0"
+    },
+    {
+      "type": "datasource",
+      "id": "loki",
+      "name": "Loki",
+      "version": "2.0.0"
+    }
+  ],
+  "id": null,
+  "uid": "playerok-observability",
+  "title": "PlayerOK Observability",
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "10s",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "tags": [
+    "playerok",
+    "marketplace",
+    "observability"
+  ],
   "annotations": {
     "list": [
       {
@@ -15,66 +81,70 @@
       }
     ]
   },
-  "editable": true,
-  "fiscalYearStartMonth": 0,
-  "graphTooltip": 0,
-  "id": null,
-  "links": [],
-  "liveNow": false,
+  "templating": {
+    "list": [
+      {
+        "name": "job",
+        "label": "Job",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${DS_PROMETHEUS}"
+        },
+        "query": "label_values(up, job)",
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        }
+      },
+      {
+        "name": "instance",
+        "label": "Instance",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${DS_PROMETHEUS}"
+        },
+        "query": "label_values(up{job=~\"$job\"}, instance)",
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        }
+      },
+      {
+        "name": "service",
+        "label": "Service (Loki)",
+        "type": "query",
+        "datasource": {
+          "type": "loki",
+          "uid": "${DS_LOKI}"
+        },
+        "query": "label_values({service_name!=\"\"}, service_name)",
+        "allValue": ".+",
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        }
+      }
+    ]
+  },
   "panels": [
     {
+      "id": 1,
+      "title": "HTTP RPS (all)",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "never",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "reqps"
-        },
-        "overrides": []
       },
       "gridPos": {
         "h": 8,
@@ -82,60 +152,37 @@
         "x": 0,
         "y": 0
       },
-      "id": 1,
+      "fieldConfig": {
+        "defaults": {
+          "unit": "req/s",
+          "decimals": 2
+        },
+        "overrides": []
+      },
       "options": {
         "legend": {
-          "calcs": ["lastNotNull", "max"],
           "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
+          "placement": "right"
         },
         "tooltip": {
-          "mode": "multi",
-          "sort": "none"
+          "mode": "multi"
         }
       },
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "expr": "sum(rate(http_requests_total{job=\"marketplace-backend\"}[5m])) by (method, route)",
-          "legendFormat": "{{method}} {{route}}",
-          "refId": "A"
+          "refId": "A",
+          "expr": "sum(rate(http_requests_total[5m]))",
+          "legendFormat": "RPS"
         }
-      ],
-      "title": "HTTP Requests Per Second (RPS)",
-      "type": "timeseries"
+      ]
     },
     {
+      "id": 2,
+      "title": "HTTP error rate (5xx / all)",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 0.01
-              }
-            ]
-          },
-          "unit": "percentunit"
-        },
-        "overrides": []
       },
       "gridPos": {
         "h": 8,
@@ -143,502 +190,275 @@
         "x": 12,
         "y": 0
       },
-      "id": 2,
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
       "options": {
         "legend": {
-          "calcs": ["lastNotNull", "max"],
-          "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
+          "displayMode": "hidden"
         },
         "tooltip": {
-          "mode": "multi",
-          "sort": "none"
+          "mode": "single"
         }
       },
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "expr": "sum(rate(http_requests_total{job=\"marketplace-backend\",status_code=~\"5..\"}[5m])) by (method, route, status_code) / sum(rate(http_requests_total{job=\"marketplace-backend\"}[5m])) by (method, route)",
-          "legendFormat": "{{method}} {{route}} ({{status_code}})",
-          "refId": "A"
+          "refId": "A",
+          "expr": "sum(rate(http_requests_total{status=~\"5..\"}[5m])) / sum(rate(http_requests_total[5m]))",
+          "legendFormat": "5xx rate"
         }
-      ],
-      "title": "HTTP Error Rate (5xx)",
-      "type": "timeseries"
+      ]
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "never",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "s"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 0,
-        "y": 8
-      },
       "id": 3,
-      "options": {
-        "legend": {
-          "calcs": ["lastNotNull", "max"],
-          "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "none"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "expr": "histogram_quantile(0.50, sum(rate(http_request_duration_seconds_bucket{job=\"marketplace-backend\"}[5m])) by (le, method, route))",
-          "legendFormat": "p50 - {{method}} {{route}}",
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=\"marketplace-backend\"}[5m])) by (le, method, route))",
-          "legendFormat": "p95 - {{method}} {{route}}",
-          "refId": "B"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{job=\"marketplace-backend\"}[5m])) by (le, method, route))",
-          "legendFormat": "p99 - {{method}} {{route}}",
-          "refId": "C"
-        }
-      ],
-      "title": "HTTP Request Latency (p50, p95, p99)",
-      "type": "timeseries"
-    },
-    {
+      "title": "HTTP latency p95 / p99",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 8
+      },
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 50
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "percent"
+          "unit": "s",
+          "decimals": 3
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 8,
-        "y": 8
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
       },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p95"
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p99"
+        }
+      ]
+    },
+    {
       "id": 4,
-      "options": {
-        "legend": {
-          "calcs": ["lastNotNull", "max"],
-          "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "none"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "expr": "rate(process_cpu_seconds_total{job=\"marketplace-backend\"}[5m]) * 100",
-          "legendFormat": "CPU Usage",
-          "refId": "A"
-        }
-      ],
-      "title": "CPU Usage (%)",
-      "type": "timeseries"
-    },
-    {
+      "title": "Backend CPU usage",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 536870912
-              },
-              {
-                "color": "red",
-                "value": 1073741824
-              }
-            ]
-          },
-          "unit": "bytes"
-        },
-        "overrides": []
-      },
       "gridPos": {
         "h": 8,
-        "w": 8,
-        "x": 16,
-        "y": 8
-      },
-      "id": 5,
-      "options": {
-        "legend": {
-          "calcs": ["lastNotNull", "max"],
-          "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "none"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "expr": "process_resident_memory_bytes{job=\"marketplace-backend\"}",
-          "legendFormat": "Resident Memory",
-          "refId": "A"
-        }
-      ],
-      "title": "Memory Usage (Resident)",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 536870912
-              },
-              {
-                "color": "red",
-                "value": 1073741824
-              }
-            ]
-          },
-          "unit": "bytes"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 8,
+        "w": 12,
         "x": 0,
         "y": 16
       },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "avg(rate(process_cpu_seconds_total[5m])) * 100",
+          "legendFormat": "CPU %"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Backend memory usage",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 16
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "process_resident_memory_bytes",
+          "legendFormat": "{{instance}}"
+        }
+      ]
+    },
+    {
       "id": 6,
-      "options": {
-        "legend": {
-          "calcs": ["lastNotNull", "max"],
-          "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "none"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "expr": "nodejs_heap_size_used_bytes{job=\"marketplace-backend\"}",
-          "legendFormat": "Heap Used",
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "expr": "nodejs_heap_size_total_bytes{job=\"marketplace-backend\"}",
-          "legendFormat": "Heap Total",
-          "refId": "B"
-        }
-      ],
-      "title": "Node.js Heap Memory",
-      "type": "timeseries"
-    },
-    {
+      "title": "PostgreSQL DB size (marketplace)",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 24
+      },
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "s"
+          "unit": "bytes"
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 8,
-        "y": 16
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
       },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "pg_database_size_bytes{datname=\"marketplace\"}",
+          "legendFormat": "marketplace"
+        }
+      ]
+    },
+    {
       "id": 7,
-      "options": {
-        "legend": {
-          "calcs": ["lastNotNull", "max"],
-          "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "none"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "expr": "nodejs_eventloop_lag_seconds{job=\"marketplace-backend\"}",
-          "legendFormat": "Event Loop Lag",
-          "refId": "A"
-        }
-      ],
-      "title": "Node.js Event Loop Lag",
-      "type": "timeseries"
-    },
-    {
+      "title": "PostgreSQL active connections",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 24
+      },
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "bars",
-            "fillOpacity": 100,
-            "gradientMode": "none",
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "never",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "normal"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "short"
+          "unit": "none"
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 16,
-        "y": 16
-      },
-      "id": 8,
       "options": {
         "legend": {
-          "calcs": ["lastNotNull", "sum"],
-          "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
+          "displayMode": "hidden"
         },
         "tooltip": {
-          "mode": "multi",
-          "sort": "none"
+          "mode": "single"
         }
       },
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "expr": "sum(increase(http_requests_total{job=\"marketplace-backend\"}[1h])) by (status_code)",
-          "legendFormat": "{{status_code}}",
-          "refId": "A"
+          "refId": "A",
+          "expr": "sum(pg_stat_activity_count)",
+          "legendFormat": "connections"
         }
-      ],
-      "title": "HTTP Requests by Status Code (Last Hour)",
-      "type": "timeseries"
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Backend logs (Loki)",
+      "type": "logs",
+      "datasource": {
+        "type": "loki",
+        "uid": "${DS_LOKI}"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 32
+      },
+      "options": {
+        "showLabels": true,
+        "showTime": true,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{service_name=~\"$service\"}"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Backend ERROR logs (Loki)",
+      "type": "logs",
+      "datasource": {
+        "type": "loki",
+        "uid": "${DS_LOKI}"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 42
+      },
+      "options": {
+        "showLabels": true,
+        "showTime": true,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{service_name=~\"$service\"} |= \"ERROR\""
+        }
+      ]
     }
-  ],
-  "refresh": "10s",
-  "schemaVersion": 38,
-  "style": "dark",
-  "tags": ["marketplace", "backend", "monitoring"],
-  "templating": {
-    "list": []
-  },
-  "time": {
-    "from": "now-1h",
-    "to": "now"
-  },
-  "timepicker": {},
-  "timezone": "",
-  "title": "Marketplace Backend - Monitoring Dashboard",
-  "uid": "marketplace-backend",
-  "version": 1,
-  "weekStart": ""
+  ]
 }
