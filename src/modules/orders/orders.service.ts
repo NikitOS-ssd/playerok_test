@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { Decimal } from '@prisma/client/runtime/library';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { CancelOrderDto } from './dto/cancel-order.dto';
@@ -15,8 +16,10 @@ export class OrdersService {
     const productIds = dto.items.map((i) => i.productId);
     this.logger.log(`Create order start for buyerEmail=${dto.buyerEmail}, products=${productIds.join(',')}`);
 
-    return this.prisma.$transaction(async (tx) => {
-      const products = await tx.product.findMany({
+    return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      type ProductSnapshot = { id: string; price: Decimal; stock: number; isActive: boolean };
+
+      const products: ProductSnapshot[] = await tx.product.findMany({
         where: { id: { in: productIds } },
         select: { id: true, price: true, stock: true, isActive: true },
       });
@@ -25,7 +28,8 @@ export class OrdersService {
         throw new BadRequestException('Some products not found');
       }
 
-      const productMap = new Map(products.map((p) => [p.id, p]));
+      const productMap = new Map<string, ProductSnapshot>();
+      products.forEach((p) => productMap.set(p.id, p));
 
       // Validate availability and build order items
       const orderItems = dto.items.map((item) => {
@@ -50,23 +54,28 @@ export class OrdersService {
         };
       });
 
-      // Update stocks
+      // Atomically decrement stock with optimistic guard to avoid race conditions
       for (const item of orderItems) {
         const product = productMap.get(item.productId)!;
+        const newStock = product.stock - item.quantity;
         this.logger.log(
-          `Reserve stock for product=${product.id}: stock ${product.stock} -> ${
-            product.stock - item.quantity
-          }`,
+          `Reserve stock for product=${product.id}: stock ${product.stock} -> ${newStock}`,
         );
-        await tx.product.update({
-          where: { id: product.id },
-          data: { stock: product.stock - item.quantity },
+
+        const updateResult = await tx.product.updateMany({
+          where: { id: product.id, isActive: true, stock: { gte: item.quantity } },
+          data: { stock: { decrement: item.quantity } },
         });
+
+        if (updateResult.count !== 1) {
+          // Someone else reserved first; prevent oversell
+          throw new BadRequestException(`Not enough stock for product ${product.id}`);
+        }
       }
 
       const totalAmount = orderItems.reduce(
         (acc, item) => acc.add(item.subtotal),
-        new Prisma.Decimal(0),
+        new Decimal(0),
       );
 
       const order = await tx.order.create({
@@ -119,7 +128,7 @@ export class OrdersService {
   async cancelOrder(id: string, _dto: CancelOrderDto) {
     this.logger.log(`Cancel order request id=${id}`);
 
-    return this.prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const order = await tx.order.findUnique({
         where: { id },
         include: { items: true },
