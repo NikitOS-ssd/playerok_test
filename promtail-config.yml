@@ -15,23 +15,23 @@ scrape_configs:
         refresh_interval: 5s
 
     relabel_configs:
-      # Имя Docker контейнера
+      # Берём только stdout/stderr
+      - source_labels: ['__meta_docker_container_log_stream']
+        regex: 'stdout|stderr'
+        action: keep
+
+      # Имя контейнера
       - source_labels: ['__meta_docker_container_name']
         target_label: 'container'
 
-      # Имя сервиса из docker-compose (то, что нам нужно!)
+      # Имя сервиса из docker-compose
       - source_labels: ['__meta_docker_container_label_com_docker_compose_service']
-        target_label: 'compose_service'
+        target_label: 'service_name'
 
-      # Имя проекта (имя папки compose)
+      # Имя проекта (compose project)
       - source_labels: ['__meta_docker_container_label_com_docker_compose_project']
         target_label: 'project'
 
-      # Полный образ
-      - source_labels: ['__meta_docker_image_name']
-        target_label: 'image'
-
-      # Не добавлять compose_service, если значение пустое
-      - regex: ''
-        action: drop
-        source_labels: ['compose_service']
+      # Путь до файла логов контейнера → обязателен, иначе promtail не знает, что читать
+      - source_labels: ['__meta_docker_container_log_path']
+        target_label: '__path__'
