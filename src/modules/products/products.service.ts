@@ -33,11 +33,18 @@ export class ProductsService {
   }
 
   findAll(params?: { sellerId?: string; isActive?: boolean }) {
+    const where: { sellerId?: string; isActive?: boolean } = {};
+    
+    if (params?.sellerId) {
+      where.sellerId = params.sellerId;
+    }
+    
+    if (params?.isActive !== undefined) {
+      where.isActive = params.isActive;
+    }
+    
     return this.prisma.product.findMany({
-      where: {
-        sellerId: params?.sellerId,
-        isActive: params?.isActive,
-      },
+      where,
       orderBy: { createdAt: 'desc' },
     });
   }

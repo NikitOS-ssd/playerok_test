@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -25,6 +25,8 @@ export class ProductsController {
 
   @Get()
   @ApiOperation({ summary: 'List products' })
+  @ApiQuery({ name: 'sellerId', required: false, description: 'Filter by seller ID' })
+  @ApiQuery({ name: 'isActive', required: false, description: 'Filter by active status (true/false)' })
   @ApiResponse({ status: 200, description: 'List of products' })
   findAll(
     @Query('sellerId') sellerId?: string,
